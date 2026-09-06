@@ -11,3 +11,37 @@ __pycache__/
 *.pyc
 .next/
 coverage/
+
+# Android build artifacts
+.android/
+android_app/.gradle/
+android_app/app/build/
+android_app/build/
+
+# Temporary debug/fix scripts
+fix*.py
+test_*.py
+ui_fix.py
+run_completion.js
+
+# Screenshots and temporary images
+screen*.png
+screenshot*.png
+test_keyboard_result.png
+
+# Log files
+server_err.txt
+server_log.txt
+server_out.txt
+
+# IDE directories
+.trae/
+.trellis/
+
+# Design files (if not needed in git)
+voice-keyboard.design/
+
+# Python virtual environments
+venv/
+.venv/
+env/
