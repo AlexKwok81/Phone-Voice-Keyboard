@@ -1,9 +1,8 @@
 import socket
 import time
-from pynput.keyboard import Key, Controller, Listener
+from pynput.keyboard import Key, Controller
 
 keyboard = Controller()
-_pressed_keys = set()
 
 # Map string names to pynput Key objects
 MODIFIER_MAP = {
@@ -50,6 +49,7 @@ SPECIAL_KEY_MAP = {
     "insert": Key.insert,
 }
 
+
 def get_key(name: str):
     name_lower = name.lower()
     if name_lower in MODIFIER_MAP:
@@ -59,6 +59,7 @@ def get_key(name: str):
     if len(name) == 1:
         return name
     return None
+
 
 def press_key(key_name: str, modifiers: list = None):
     key = get_key(key_name)
@@ -83,6 +84,7 @@ def press_key(key_name: str, modifiers: list = None):
         time.sleep(0.02)
         keyboard.release(mod_key)
 
+
 def release_key(key_name: str):
     key = get_key(key_name)
     if key:
@@ -90,6 +92,7 @@ def release_key(key_name: str):
             keyboard.release(key)
         except Exception:
             pass
+
 
 def get_local_ip():
     try:

@@ -1,18 +1,28 @@
 import json
+import logging
 import asyncio
 import websockets
-from keyboard import press_key, release_key
+from keyboard import press_key, release_key, get_key, keyboard
 import sounddevice as sd
 import numpy as np
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("server")
+
+
 class WebSocketServer:
-    def __init__(self, host, port):
+    def __init__(self, host: str, port: int):
         self.host = host
         self.port = port
-        self.clients = set()
+        self.clients: set = set()
         self.server = None
         self.audio_device = None
         self.audio_stream = None
+        self._audio_chunk_count = 0
         self._find_audio_device()
 
     def _find_audio_device(self):
@@ -21,14 +31,16 @@ class WebSocketServer:
             for i, d in enumerate(devices):
                 if "cable input" in d["name"].lower() and d["max_output_channels"] > 0:
                     self.audio_device = i
-                    print(f"  Audio output: {d['name']} (idx={i})")
+                    log.info("Audio output: %s (idx=%d)", d["name"], i)
                     return
-            print("  [!] VB-Audio Cable Input not found!")
+            log.warning("VB-Audio Cable Input not found - audio mode disabled")
         except Exception as e:
-            print(f"  [!] Audio device error: {e}")
+            log.error("Audio device error: %s", e)
 
     def _ensure_audio_stream(self):
         if self.audio_stream is not None:
+            return
+        if self.audio_device is None:
             return
         try:
             self.audio_stream = sd.OutputStream(
@@ -39,39 +51,56 @@ class WebSocketServer:
                 blocksize=320,
             )
             self.audio_stream.start()
-            print("  Audio stream started")
+            log.info("Audio stream started")
         except Exception as e:
-            print(f"  [!] Audio stream error: {e}")
+            log.error("Audio stream error: %s", e)
 
-    def _write_audio(self, pcm_bytes):
+    def _close_audio_stream(self):
+        if self.audio_stream is None:
+            return
+        try:
+            self.audio_stream.stop()
+            self.audio_stream.close()
+        except Exception:
+            pass
+        self.audio_stream = None
+        log.info("Audio stream closed")
+
+    def _write_audio(self, pcm_bytes: bytes):
         if self.audio_device is None:
-            print("  [!] No audio device")
             return
         try:
             self._ensure_audio_stream()
+            if self.audio_stream is None:
+                return
             samples = np.frombuffer(pcm_bytes, dtype=np.int16)
             if len(samples) == 0:
                 return
             audio = samples.astype(np.float32) / 32768.0
             self.audio_stream.write(audio.reshape(-1, 1))
-            if not hasattr(self, '_audio_chunk_count'):
-                self._audio_chunk_count = 0
             self._audio_chunk_count += 1
             if self._audio_chunk_count % 50 == 1:
-                print(f"  [~] Audio chunks: {self._audio_chunk_count}, samples: {len(samples)}")
+                log.debug("Audio chunks: %d, samples: %d", self._audio_chunk_count, len(samples))
         except Exception as e:
-            print(f"  [!] Audio write error: {e}")
+            log.error("Audio write error: %s", e)
+
+    def _handle_key_down(self, key_name: str):
+        key = get_key(key_name)
+        if key:
+            try:
+                keyboard.press(key)
+            except Exception as e:
+                log.error("key_down failed for %s: %s", key_name, e)
 
     async def handler(self, websocket):
         self.clients.add(websocket)
         remote = websocket.remote_address
-        print(f"[+] Client connected: {remote[0]}:{remote[1]}")
+        log.info("Client connected: %s:%s", remote[0], remote[1])
 
-        # Send welcome message
         await websocket.send(json.dumps({
             "type": "connected",
             "device_id": "pc_server",
-            "audio_ready": True
+            "audio_ready": True,
         }))
 
         try:
@@ -88,49 +117,32 @@ class WebSocketServer:
                         key = data.get("key", "")
                         modifiers = data.get("modifiers", [])
                         press_key(key, modifiers)
-                        print(f"  Key: {key} modifiers={modifiers}")
+                        log.info("Key: %s modifiers=%s", key, modifiers)
 
                     elif msg_type == "key_down":
-                        key = data.get("key", "")
-                        from keyboard import get_key
-                        k = get_key(key)
-                        if k:
-                            try:
-                                from pynput.keyboard import Controller
-                                kb = Controller()
-                                kb.press(k)
-                            except Exception as e:
-                                print(f"  [!] press failed: {e}")
+                        self._handle_key_down(data.get("key", ""))
 
                     elif msg_type == "key_up":
-                        key = data.get("key", "")
-                        release_key(key)
+                        release_key(data.get("key", ""))
 
-                    elif msg_type == "button_down":
-                        print("  [+] Button down (audio mode)")
-
-                    elif msg_type == "button_up":
-                        print("  [-] Button up (audio mode)")
+                    elif msg_type in ("button_down", "button_up"):
+                        log.info("Button %s (audio mode)", msg_type.split("_")[1])
 
                     else:
-                        print(f"  [?] Unknown message type: {msg_type}")
+                        log.warning("Unknown message type: %s", msg_type)
 
                 except json.JSONDecodeError:
-                    print(f"  [!] Bad JSON: {message[:100]}")
+                    log.error("Bad JSON: %s", str(message)[:100])
                 except Exception as e:
-                    print(f"  [!] Error: {e}")
+                    log.error("Error: %s", e)
 
         except websockets.exceptions.ConnectionClosed:
             pass
         finally:
             self.clients.discard(websocket)
-            if self.audio_stream:
-                try:
-                    self.audio_stream.stop()
-                    self.audio_stream.close()
-                except: pass
-                self.audio_stream = None
-            print(f"[-] Client disconnected: {remote[0]}:{remote[1]}")
+            if not self.clients:
+                self._close_audio_stream()
+            log.info("Client disconnected: %s:%s", remote[0], remote[1])
 
     async def start(self):
         self.server = await websockets.serve(
@@ -141,7 +153,7 @@ class WebSocketServer:
             ping_timeout=10,
             max_size=10 * 1024 * 1024,
         )
-        print(f"WebSocket server listening on ws://{self.host}:{self.port}")
+        log.info("WebSocket server listening on ws://%s:%d", self.host, self.port)
         await self.server.wait_closed()
 
     def run(self):
