@@ -5,6 +5,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,10 +49,7 @@ fun KeyboardScreen(vm: MainViewModel) {
     val KeyRadius = t.KeyRadius.dp
     val Gap = t.Gap.dp
 
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = if (mouseSettings.enabled) listOf("键盘", "鼠标", "设置") else listOf("键盘", "设置")
-
-
+    var showSettings by remember { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -63,14 +62,55 @@ fun KeyboardScreen(vm: MainViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(t.RowGap.dp)
         ) {
-            // 连接栏
-            ConnectionBar(
-                serverUrl = serverUrl,
-                isConnected = isConnected,
-                onUrlChange = { vm.serverUrl.value = it },
-                onToggle = { if (isConnected) vm.disconnect() else vm.connect() },
-                keyRadius = KeyRadius,
-            )
+            // 连接栏 + 设置按钮
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(t.Gap.dp)
+            ) {
+                OutlinedTextField(
+                    value = serverUrl,
+                    onValueChange = { vm.serverUrl.value = it },
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    singleLine = true,
+                    textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
+                    enabled = !isConnected,
+                    shape = RoundedCornerShape(KeyRadius),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = t.AccentColor,
+                        unfocusedBorderColor = Color(0xFFCCCCCC),
+                        focusedTextColor = t.TextDark,
+                        unfocusedTextColor = t.TextDark,
+                        disabledTextColor = t.TextDim
+                    )
+                )
+                Button(
+                    onClick = { if (isConnected) vm.disconnect() else vm.connect() },
+                    modifier = Modifier.height(48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isConnected) t.ErrorColor else t.AccentColor
+                    ),
+                    shape = RoundedCornerShape(KeyRadius)
+                ) {
+                    Text(
+                        if (isConnected) "断开" else "连接",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White,
+                        maxLines = 1
+                    )
+                }
+                IconButton(
+                    onClick = { showSettings = true },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "设置",
+                        tint = t.TextDim
+                    )
+                }
+            }
 
             if (connectionHint.isNotEmpty()) {
                 Text(
@@ -82,175 +122,135 @@ fun KeyboardScreen(vm: MainViewModel) {
                 )
             }
 
-            // Tab 切换
-            TabRow(selectedTabIndex = selectedTab) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = { Text(title) }
-                    )
-                }
-            }
-
-            // 内容区
-            when {
-                selectedTab == 0 -> {
-                    // 修饰键
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Gap)
-                    ) {
-                        listOf("ctrl" to "Ctrl", "alt" to "Alt", "shift" to "Shift", "win" to "Win").forEach { (key, label) ->
-                            val isActive = vm.isModifierActive(key)
-                            Button(
-                                onClick = { vm.toggleModifier(key) },
-                                modifier = Modifier.weight(1f).height(t.SmallKeyHeight.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isActive) t.AccentColor else t.KeyBg
-                                ),
-                                shape = RoundedCornerShape(t.KeyRadius.dp)
-                            ) {
-                                Text(
-                                    label,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isActive) Color.White else t.TextDark
-                                )
-                            }
-                        }
-                    }
-
-                    // 常用功能键
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Gap)
-                    ) {
-                        listOf("Esc" to "escape", "Tab" to "tab", "Bksp" to "backspace", "Del" to "delete").forEach { (label, key) ->
-                            Button(
-                                onClick = { vm.sendKey(key) },
-                                modifier = Modifier.weight(1f).height(t.SmallKeyHeight.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
-                                shape = RoundedCornerShape(t.KeyRadius.dp)
-                            ) {
-                                Text(label, fontSize = 12.sp, color = t.TextDark)
-                            }
-                        }
-                    }
-
-                    // 方向键
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(Gap)) {
-                            Button(
-                                onClick = { vm.sendKey("up") },
-                                modifier = Modifier.size(t.ArrowKeySize.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
-                                shape = RoundedCornerShape(t.KeyRadius.dp),
-                                contentPadding = PaddingValues(0.dp)
-                            ) { Text("↑", fontSize = 16.sp, color = t.TextDark) }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(Gap)) {
-                            listOf("←" to "left", "↓" to "down", "→" to "right").forEach { (label, key) ->
-                                Button(
-                                    onClick = { vm.sendKey(key) },
-                                    modifier = Modifier.size(t.ArrowKeySize.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
-                                    shape = RoundedCornerShape(t.KeyRadius.dp),
-                                    contentPadding = PaddingValues(0.dp)
-                                ) { Text(label, fontSize = 14.sp, color = t.TextDark) }
-                            }
-                        }
-                    }
-
-                    // Enter
+            // 键盘主界面
+            // 修饰键
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Gap)
+            ) {
+                listOf("ctrl" to "Ctrl", "alt" to "Alt", "shift" to "Shift", "win" to "Win").forEach { (key, label) ->
+                    val isActive = vm.isModifierActive(key)
                     Button(
-                        onClick = { vm.sendKey("enter") },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = t.AccentColor),
+                        onClick = { vm.toggleModifier(key) },
+                        modifier = Modifier.weight(1f).height(t.SmallKeyHeight.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isActive) t.AccentColor else t.KeyBg
+                        ),
                         shape = RoundedCornerShape(t.KeyRadius.dp)
                     ) {
-                        Text("Enter", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-
-                    // 鼠标按键
-                    if (mouseSettings.enabled) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(Gap)
-                        ) {
-                            Button(
-                                onClick = { vm.sendMouseClick("left") },
-                                modifier = Modifier.weight(1f).height(t.SmallKeyHeight.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
-                                shape = RoundedCornerShape(t.KeyRadius.dp)
-                            ) {
-                                Text("左键", fontSize = 12.sp, color = t.TextDark)
-                            }
-                            Button(
-                                onClick = { vm.sendMouseClick("right") },
-                                modifier = Modifier.weight(1f).height(t.SmallKeyHeight.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
-                                shape = RoundedCornerShape(t.KeyRadius.dp)
-                            ) {
-                                Text("右键", fontSize = 12.sp, color = t.TextDark)
-                            }
-                        }
-                    }
-
-                    // 触控板
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                    ) {
-                        TouchPadMode(
-                            onMove = { dx, dy -> vm.sendMouseMove(dx, dy) },
-                            onClick = { vm.sendMouseClick("left") },
-                            onRightClick = { vm.sendMouseClick("right") },
-                            onScroll = { dy -> vm.sendMouseScroll(dy) },
-                            enabled = true
+                        Text(
+                            label,
+                            fontSize = 12.sp,
+                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isActive) Color.White else t.TextDark
                         )
                     }
-
-                    // 语音按钮
-                    MicButton(
-                        isRecording = isRecording,
-                        onPress = { vm.startRecording() },
-                        onRelease = { vm.stopRecording() },
-                    )
-                }
-                selectedTab == 1 && mouseSettings.enabled -> {
-                    when (mouseSettings.mode) {
-                        "air_mouse" -> AirMouseMode(
-                            enabled = vm.airMouseEnabled.value,
-                            onStart = { vm.startAirMouse() },
-                            onStop = { vm.stopAirMouse() },
-                            onPause = { vm.toggleAirMousePause() },
-                            paused = vm.airMousePaused.value,
-                            onLeftClick = { vm.sendMouseClick("left") },
-                            onRightClick = { vm.sendMouseClick("right") }
-                        )
-                        "touchpad" -> TouchPadMode(
-                            onMove = { dx, dy -> vm.sendMouseMove(dx, dy) },
-                            onClick = { vm.sendMouseClick("left") },
-                            onRightClick = { vm.sendMouseClick("right") },
-                            onScroll = { dy -> vm.sendMouseScroll(dy) },
-                            enabled = true
-                        )
-                    }
-                }
-                (selectedTab == 2) || (selectedTab == 1 && !mouseSettings.enabled) -> {
-                    SettingsScreen(
-                        settings = mouseSettings,
-                        onSettingsChange = { vm.updateMouseSettings(it) }
-                    )
                 }
             }
 
+            // 常用功能键
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Gap)
+            ) {
+                listOf("Esc" to "escape", "Tab" to "tab", "Bksp" to "backspace", "Del" to "delete").forEach { (label, key) ->
+                    Button(
+                        onClick = { vm.sendKey(key) },
+                        modifier = Modifier.weight(1f).height(t.SmallKeyHeight.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
+                        shape = RoundedCornerShape(t.KeyRadius.dp)
+                    ) {
+                        Text(label, fontSize = 12.sp, color = t.TextDark)
+                    }
+                }
+            }
+
+            // 方向键
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Gap)) {
+                    Button(
+                        onClick = { vm.sendKey("up") },
+                        modifier = Modifier.size(t.ArrowKeySize.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
+                        shape = RoundedCornerShape(t.KeyRadius.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) { Text("↑", fontSize = 16.sp, color = t.TextDark) }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(Gap)) {
+                    listOf("←" to "left", "↓" to "down", "→" to "right").forEach { (label, key) ->
+                        Button(
+                            onClick = { vm.sendKey(key) },
+                            modifier = Modifier.size(t.ArrowKeySize.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
+                            shape = RoundedCornerShape(t.KeyRadius.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) { Text(label, fontSize = 14.sp, color = t.TextDark) }
+                    }
+                }
+            }
+
+            // Enter
+            Button(
+                onClick = { vm.sendKey("enter") },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = t.AccentColor),
+                shape = RoundedCornerShape(t.KeyRadius.dp)
+            ) {
+                Text("Enter", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+
+            // 鼠标按键（如果启用）
+            if (mouseSettings.enabled) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Gap)
+                ) {
+                    Button(
+                        onClick = { vm.sendMouseClick("left") },
+                        modifier = Modifier.weight(1f).height(t.SmallKeyHeight.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
+                        shape = RoundedCornerShape(t.KeyRadius.dp)
+                    ) {
+                        Text("左键", fontSize = 12.sp, color = t.TextDark)
+                    }
+                    Button(
+                        onClick = { vm.sendMouseClick("right") },
+                        modifier = Modifier.weight(1f).height(t.SmallKeyHeight.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
+                        shape = RoundedCornerShape(t.KeyRadius.dp)
+                    ) {
+                        Text("右键", fontSize = 12.sp, color = t.TextDark)
+                    }
+                }
+            }
+
+            // 触控板
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                TouchPadMode(
+                    onMove = { dx, dy -> vm.sendMouseMove(dx, dy) },
+                    onClick = { vm.sendMouseClick("left") },
+                    onRightClick = { vm.sendMouseClick("right") },
+                    onScroll = { dy -> vm.sendMouseScroll(dy) },
+                    enabled = true
+                )
+            }
+
+            // 语音按钮
+            MicButton(
+                isRecording = isRecording,
+                onPress = { vm.startRecording() },
+                onRelease = { vm.stopRecording() },
+            )
+
+            // 错误提示
             error?.let { err ->
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
@@ -266,6 +266,95 @@ fun KeyboardScreen(vm: MainViewModel) {
                             Text("关闭")
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // 设置对话框
+    if (showSettings) {
+        AlertDialog(
+            onDismissRequest = { showSettings = false },
+            title = { Text("设置") },
+            text = {
+                SettingsContent(
+                    settings = mouseSettings,
+                    onSettingsChange = { vm.updateMouseSettings(it) }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showSettings = false }) {
+                    Text("完成")
+                }
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsContent(
+    settings: MouseSettings,
+    onSettingsChange: (MouseSettings) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("启用鼠标功能")
+            Switch(
+                checked = settings.enabled,
+                onCheckedChange = { onSettingsChange(settings.copy(enabled = it)) }
+            )
+        }
+
+        if (settings.enabled) {
+            Divider()
+
+            Text("鼠标模式", style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = settings.mode == "air_mouse",
+                    onClick = { onSettingsChange(settings.copy(mode = "air_mouse")) },
+                    label = { Text("空中鼠标") }
+                )
+                FilterChip(
+                    selected = settings.mode == "touchpad",
+                    onClick = { onSettingsChange(settings.copy(mode = "touchpad")) },
+                    label = { Text("触控板") }
+                )
+            }
+
+            Text("灵敏度: ${settings.sensitivity.toInt()}%")
+            Slider(
+                value = settings.sensitivity,
+                onValueChange = { onSettingsChange(settings.copy(sensitivity = it)) },
+                valueRange = 10f..100f
+            )
+
+            Text("死区阈值: ${String.format("%.2f", settings.deadZone)}")
+            Slider(
+                value = settings.deadZone,
+                onValueChange = { onSettingsChange(settings.copy(deadZone = it)) },
+                valueRange = 0.01f..0.1f
+            )
+
+            if (settings.mode == "touchpad") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("双指滚轮")
+                    Switch(
+                        checked = settings.twoFingerScroll,
+                        onCheckedChange = { onSettingsChange(settings.copy(twoFingerScroll = it)) }
+                    )
                 }
             }
         }
@@ -345,7 +434,7 @@ fun AirMouseMode(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-Button(
+                Button(
                     onClick = { onLeftClick() },
                     modifier = Modifier.weight(1f).height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
