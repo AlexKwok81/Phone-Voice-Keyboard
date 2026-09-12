@@ -45,7 +45,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val serverUrl = mutableStateOf(conn.savedUrl)
     val isRecording = mutableStateOf(false)
     val connectionHint = mutableStateOf("")
-    val mouseSettings = mutableStateOf(loadMouseSettings(application))
+    val appSettings = mutableStateOf(loadAppSettings(application))
     val airMouseEnabled = mutableStateOf(false)
     val airMousePaused = mutableStateOf(false)
     private val _activeModifiers = mutableStateListOf<String>()
@@ -84,8 +84,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun startRecording() {
         if (status.value != ConnectionStatus.CONNECTED) return
         if (isRecording.value) return
-        conn.sendKeyDown("ctrl")
-        conn.sendKeyDown("win")
+        // 使用配置的按键触发语音输入
+        val triggerKeys = appSettings.value.voiceTriggerKeys
+        triggerKeys.forEach { key -> conn.sendKeyDown(key) }
         conn.sendButtonDown()
         recorder.start()
         isRecording.value = true
@@ -96,8 +97,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         recorder.stop()
         isRecording.value = false
         conn.sendButtonUp()
-        conn.sendKeyUp("win")
-        conn.sendKeyUp("ctrl")
+        // 释放配置的按键（反序释放）
+        val triggerKeys = appSettings.value.voiceTriggerKeys
+        triggerKeys.reversed().forEach { key -> conn.sendKeyUp(key) }
     }
 
     fun startAirMouse() {
@@ -105,8 +107,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             error.value = "请先连接服务器"
             return
         }
-        airMouse.sensitivity = mouseSettings.value.sensitivity.toInt()
-        airMouse.deadZone = mouseSettings.value.deadZone
+        airMouse.sensitivity = appSettings.value.sensitivity.toInt()
+        airMouse.deadZone = appSettings.value.deadZone
         airMouse.start()
         airMouseEnabled.value = true
         airMousePaused.value = false
@@ -127,13 +129,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun sendMouseClick(button: String) = conn.sendMouseClick(button)
     fun sendMouseScroll(dy: Int) = conn.sendMouseScroll(dy)
 
-    fun updateMouseSettings(settings: MouseSettings) {
-        mouseSettings.value = settings
-        saveMouseSettings(getApplication(), settings)
+    fun updateAppSettings(settings: AppSettings) {
+        appSettings.value = settings
+        saveAppSettings(getApplication(), settings)
         airMouse.sensitivity = settings.sensitivity.toInt()
         airMouse.deadZone = settings.deadZone
         // 关闭鼠标功能或切换到触控板时停止陀螺仪
-        if (!settings.enabled || settings.mode != "air_mouse") {
+        if (!settings.mouseEnabled || settings.mouseMode != "air_mouse") {
             stopAirMouse()
         }
     }

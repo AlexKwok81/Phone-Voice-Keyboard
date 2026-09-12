@@ -3,6 +3,8 @@ package com.phonemic.keyboard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -43,7 +45,7 @@ fun KeyboardScreen(vm: MainViewModel) {
     val isConnected = status == ConnectionStatus.CONNECTED
     val isRecording by vm.isRecording
     val connectionHint by vm.connectionHint
-    val mouseSettings by vm.mouseSettings
+    val appSettings by vm.appSettings
 
     val t = KeyboardTokens
     val KeyRadius = t.KeyRadius.dp
@@ -62,52 +64,27 @@ fun KeyboardScreen(vm: MainViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(t.RowGap.dp)
         ) {
-            // 连接栏 + 设置按钮
+            // 顶部栏：连接状态指示 + 设置按钮
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(t.Gap.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                OutlinedTextField(
-                    value = serverUrl,
-                    onValueChange = { vm.serverUrl.value = it },
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
-                    enabled = !isConnected,
-                    shape = RoundedCornerShape(KeyRadius),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = t.AccentColor,
-                        unfocusedBorderColor = Color(0xFFCCCCCC),
-                        focusedTextColor = t.TextDark,
-                        unfocusedTextColor = t.TextDark,
-                        disabledTextColor = t.TextDim
-                    )
+                // 连接状态文字
+                Text(
+                    text = if (isConnected) "已连接" else "未连接",
+                    fontSize = 12.sp,
+                    color = if (isConnected) t.AccentColor else t.TextDim
                 )
-                Button(
-                    onClick = { if (isConnected) vm.disconnect() else vm.connect() },
-                    modifier = Modifier.height(48.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isConnected) t.ErrorColor else t.AccentColor
-                    ),
-                    shape = RoundedCornerShape(KeyRadius)
-                ) {
-                    Text(
-                        if (isConnected) "断开" else "连接",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White,
-                        maxLines = 1
-                    )
-                }
+                // 设置按钮（齿轮）
                 IconButton(
                     onClick = { showSettings = true },
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Settings,
                         contentDescription = "设置",
-                        tint = t.TextDim
+                        tint = if (isConnected) t.AccentColor else t.TextDim
                     )
                 }
             }
@@ -204,7 +181,7 @@ fun KeyboardScreen(vm: MainViewModel) {
             }
 
             // 鼠标按键（如果启用）
-            if (mouseSettings.enabled) {
+            if (appSettings.mouseEnabled) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(Gap)
@@ -278,8 +255,13 @@ fun KeyboardScreen(vm: MainViewModel) {
             title = { Text("设置") },
             text = {
                 SettingsContent(
-                    settings = mouseSettings,
-                    onSettingsChange = { vm.updateMouseSettings(it) }
+                    settings = appSettings,
+                    onSettingsChange = { vm.updateAppSettings(it) },
+                    serverUrl = serverUrl,
+                    isConnected = isConnected,
+                    connectionHint = connectionHint,
+                    onUrlChange = { vm.serverUrl.value = it },
+                    onToggle = { if (isConnected) vm.disconnect() else vm.connect() }
                 )
             },
             confirmButton = {
@@ -291,16 +273,108 @@ fun KeyboardScreen(vm: MainViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun SettingsContent(
-    settings: MouseSettings,
-    onSettingsChange: (MouseSettings) -> Unit
+    settings: AppSettings,
+    onSettingsChange: (AppSettings) -> Unit,
+    serverUrl: String,
+    isConnected: Boolean,
+    connectionHint: String,
+    onUrlChange: (String) -> Unit,
+    onToggle: () -> Unit
 ) {
+    val t = KeyboardTokens
+    val KeyRadius = t.KeyRadius.dp
+
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // 服务器连接设置
+        Text("服务器连接", style = MaterialTheme.typography.titleMedium)
+        
+        OutlinedTextField(
+            value = serverUrl,
+            onValueChange = onUrlChange,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            singleLine = true,
+            textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
+            enabled = !isConnected,
+            shape = RoundedCornerShape(KeyRadius),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = t.AccentColor,
+                unfocusedBorderColor = Color(0xFFCCCCCC),
+                focusedTextColor = t.TextDark,
+                unfocusedTextColor = t.TextDark,
+                disabledTextColor = t.TextDim
+            )
+        )
+        
+        Button(
+            onClick = onToggle,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isConnected) t.ErrorColor else t.AccentColor
+            ),
+            shape = RoundedCornerShape(KeyRadius)
+        ) {
+            Text(
+                if (isConnected) "断开连接" else "连接",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White,
+                maxLines = 1
+            )
+        }
+
+        if (connectionHint.isNotEmpty()) {
+            Text(
+                connectionHint,
+                fontSize = 12.sp,
+                color = if (connectionHint.contains("失败")) t.ErrorColor else t.AccentColor,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        }
+
+        Divider()
+
+        // 语音输入触发键设置
+        Text("语音输入触发键", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "点击添加或移除按键，按住语音按钮时会依次发送这些按键",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        val availableKeys = listOf("ctrl", "alt", "shift", "win", "v", "space")
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            availableKeys.forEach { key ->
+                val isSelected = key in settings.voiceTriggerKeys
+                FilterChip(
+                    selected = isSelected,
+                    onClick = {
+                        val newKeys = if (isSelected) {
+                            settings.voiceTriggerKeys - key
+                        } else {
+                            settings.voiceTriggerKeys + key
+                        }
+                        onSettingsChange(settings.copy(voiceTriggerKeys = newKeys))
+                    },
+                    label = { Text(key.uppercase()) }
+                )
+            }
+        }
+
+        Divider()
+
+        // 鼠标功能设置
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -308,24 +382,22 @@ private fun SettingsContent(
         ) {
             Text("启用鼠标功能")
             Switch(
-                checked = settings.enabled,
-                onCheckedChange = { onSettingsChange(settings.copy(enabled = it)) }
+                checked = settings.mouseEnabled,
+                onCheckedChange = { onSettingsChange(settings.copy(mouseEnabled = it)) }
             )
         }
 
-        if (settings.enabled) {
-            Divider()
-
+        if (settings.mouseEnabled) {
             Text("鼠标模式", style = MaterialTheme.typography.titleMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
-                    selected = settings.mode == "air_mouse",
-                    onClick = { onSettingsChange(settings.copy(mode = "air_mouse")) },
+                    selected = settings.mouseMode == "air_mouse",
+                    onClick = { onSettingsChange(settings.copy(mouseMode = "air_mouse")) },
                     label = { Text("空中鼠标") }
                 )
                 FilterChip(
-                    selected = settings.mode == "touchpad",
-                    onClick = { onSettingsChange(settings.copy(mode = "touchpad")) },
+                    selected = settings.mouseMode == "touchpad",
+                    onClick = { onSettingsChange(settings.copy(mouseMode = "touchpad")) },
                     label = { Text("触控板") }
                 )
             }
@@ -344,7 +416,7 @@ private fun SettingsContent(
                 valueRange = 0.01f..0.1f
             )
 
-            if (settings.mode == "touchpad") {
+            if (settings.mouseMode == "touchpad") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -456,55 +528,6 @@ fun AirMouseMode(
 }
 
 @Composable
-private fun ConnectionBar(
-    serverUrl: String,
-    isConnected: Boolean,
-    onUrlChange: (String) -> Unit,
-    onToggle: () -> Unit,
-    keyRadius: androidx.compose.ui.unit.Dp,
-) {
-    val t = KeyboardTokens
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(t.Gap.dp)
-    ) {
-        OutlinedTextField(
-            value = serverUrl,
-            onValueChange = onUrlChange,
-            modifier = Modifier.weight(1f).height(48.dp),
-            singleLine = true,
-            textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
-            enabled = !isConnected,
-            shape = RoundedCornerShape(keyRadius),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = t.AccentColor,
-                unfocusedBorderColor = Color(0xFFCCCCCC),
-                focusedTextColor = t.TextDark,
-                unfocusedTextColor = t.TextDark,
-                disabledTextColor = t.TextDim
-            )
-        )
-        Button(
-            onClick = onToggle,
-            modifier = Modifier.height(48.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (isConnected) t.ErrorColor else t.AccentColor
-            ),
-            shape = RoundedCornerShape(keyRadius)
-        ) {
-            Text(
-                if (isConnected) "断开" else "连接",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.White,
-                maxLines = 1
-            )
-        }
-    }
-}
-
-@Composable
 private fun MicButton(
     isRecording: Boolean,
     onPress: () -> Unit,
@@ -542,3 +565,5 @@ private fun MicButton(
         )
     }
 }
+
+
