@@ -201,7 +201,20 @@ fun KeyboardScreen(vm: MainViewModel) {
                         }
                     }
 
-                    Spacer(modifier = Modifier.weight(1f))
+                    // 触控板
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        TouchPadMode(
+                            onMove = { dx, dy -> vm.sendMouseMove(dx, dy) },
+                            onClick = { vm.sendMouseClick("left") },
+                            onRightClick = { vm.sendMouseClick("right") },
+                            onScroll = { dy -> vm.sendMouseScroll(dy) },
+                            enabled = true
+                        )
+                    }
 
                     // 语音按钮
                     MicButton(
@@ -272,7 +285,7 @@ fun AirMouseMode(
     val t = KeyboardTokens
     Column(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxWidth()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
