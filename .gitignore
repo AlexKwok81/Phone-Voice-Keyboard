@@ -28,6 +28,7 @@ run_completion.js
 screen*.png
 screenshot*.png
 test_keyboard_result.png
+pc_screen.png
 
 # Log files
 server_err.txt
@@ -38,10 +39,16 @@ server_out.txt
 .trae/
 .trellis/
 
-# Design files (if not needed in git)
+# Design files
 voice-keyboard.design/
 
 # Python virtual environments
 venv/
 .venv/
 env/
+
+# Archive directory (temp files)
+archive/
+
+# Backup files
+*.bak
