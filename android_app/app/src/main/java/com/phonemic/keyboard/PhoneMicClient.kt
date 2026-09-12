@@ -1,14 +1,12 @@
 package com.phonemic.keyboard
 
 import android.content.Context
-import android.util.Base64
 import android.util.Log
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
-import okio.ByteString
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
@@ -37,10 +35,10 @@ class PhoneMicClient(private val context: Context) {
 
     fun connect(url: String) {
         if (_status != ConnectionStatus.DISCONNECTED) {
-            Log.d("PhoneMic", "connect() skipped, status=$_status")
+            Log.d("PhoneMic", "connect() skipped, status=")
             return
         }
-        Log.d("PhoneMic", "Connecting to $url ...")
+        Log.d("PhoneMic", "Connecting to  ...")
         setStatus(ConnectionStatus.CONNECTING)
 
         val request = Request.Builder().url(url).build()
@@ -62,7 +60,7 @@ class PhoneMicClient(private val context: Context) {
                 ws.close(code, reason)
             }
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
-                Log.e("PhoneMic", "WebSocket FAILED: ${t.message}", t)
+                Log.e("PhoneMic", "WebSocket FAILED: ", t)
                 onError?.invoke(t.message ?: "Connection failed")
                 setStatus(ConnectionStatus.DISCONNECTED)
             }
@@ -81,7 +79,7 @@ class PhoneMicClient(private val context: Context) {
     }
 
     fun sendKey(key: String, modifiers: List<String> = emptyList()) {
-        Log.d("PhoneMic", "sendKey: key=$key modifiers=$modifiers status=$_status ws=${webSocket != null}")
+        Log.d("PhoneMic", "sendKey: key= modifiers= status= ws=")
         if (_status != ConnectionStatus.CONNECTED) {
             Log.e("PhoneMic", "sendKey SKIPPED: not connected")
             return
@@ -92,7 +90,7 @@ class PhoneMicClient(private val context: Context) {
             put("modifiers", org.json.JSONArray(modifiers))
         }
         val sent = webSocket?.send(json.toString()) ?: false
-        Log.d("PhoneMic", "sendKey sent=$sent json=$json")
+        Log.d("PhoneMic", "sendKey sent= json=")
     }
 
     fun sendKeyDown(key: String) {
@@ -129,6 +127,44 @@ class PhoneMicClient(private val context: Context) {
         }
         webSocket?.send(json.toString())
         Log.d("PhoneMic", "Sent button_up")
+    }
+
+    fun sendAirMouse(dx: Float, dy: Float) {
+        if (_status != ConnectionStatus.CONNECTED) return
+        val json = JSONObject().apply {
+            put("type", "air_mouse")
+            put("dx", dx.toDouble())
+            put("dy", dy.toDouble())
+        }
+        webSocket?.send(json.toString())
+    }
+
+    fun sendMouseMove(dx: Int, dy: Int) {
+        if (_status != ConnectionStatus.CONNECTED) return
+        val json = JSONObject().apply {
+            put("type", "mouse_move")
+            put("dx", dx)
+            put("dy", dy)
+        }
+        webSocket?.send(json.toString())
+    }
+
+    fun sendMouseClick(button: String = "left") {
+        if (_status != ConnectionStatus.CONNECTED) return
+        val json = JSONObject().apply {
+            put("type", "mouse_click")
+            put("button", button)
+        }
+        webSocket?.send(json.toString())
+    }
+
+    fun sendMouseScroll(dy: Int) {
+        if (_status != ConnectionStatus.CONNECTED) return
+        val json = JSONObject().apply {
+            put("type", "mouse_scroll")
+            put("dy", dy)
+        }
+        webSocket?.send(json.toString())
     }
 
     fun sendAudioData(data: ByteArray) {

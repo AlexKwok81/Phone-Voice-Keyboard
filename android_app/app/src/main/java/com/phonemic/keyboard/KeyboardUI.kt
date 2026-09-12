@@ -17,20 +17,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// ===== 设计 Token =====
 object KeyboardTokens {
-    const val KeyHeight = 56
-    const val SmallKeyHeight = 44
+    const val KeyHeight = 52
+    const val SmallKeyHeight = 42
     const val ArrowKeySize = 44
-    const val Gap = 10
-    const val RowGap = 14
+    const val Gap = 8
+    const val RowGap = 10
     const val KeyRadius = 12
 
     val BgColor = Color(0xFFF5F5F5)
-    val KeyBg = Color(0xFFE8E8E8)
-    val KeyLetterBg = Color(0xFFFFFFFF)
-    val KeyFnBg = Color(0xFFE0E0E0)
-    val KeyArrowBg = Color(0xFFE0E0E0)
+    val KeyBg = Color(0xFFE0E0E0)
     val AccentColor = Color(0xFF1A9E8F)
     val TextDark = Color(0xFF333333)
     val TextDim = Color(0xFF888888)
@@ -45,11 +41,16 @@ fun KeyboardScreen(vm: MainViewModel) {
     val isConnected = status == ConnectionStatus.CONNECTED
     val isRecording by vm.isRecording
     val connectionHint by vm.connectionHint
+    val mouseSettings by vm.mouseSettings
 
     val t = KeyboardTokens
     val KeyRadius = t.KeyRadius.dp
     val Gap = t.Gap.dp
-    val RowGap = t.RowGap.dp
+
+    var selectedTab by remember { mutableIntStateOf(0) }
+    val tabs = if (mouseSettings.enabled) listOf("键盘", "鼠标", "设置") else listOf("键盘", "设置")
+
+
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -58,11 +59,11 @@ fun KeyboardScreen(vm: MainViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(RowGap)
+            verticalArrangement = Arrangement.spacedBy(t.RowGap.dp)
         ) {
-            // ─── 连接栏 ───
+            // 连接栏
             ConnectionBar(
                 serverUrl = serverUrl,
                 isConnected = isConnected,
@@ -71,7 +72,6 @@ fun KeyboardScreen(vm: MainViewModel) {
                 keyRadius = KeyRadius,
             )
 
-            // ─── 连接提示 ───
             if (connectionHint.isNotEmpty()) {
                 Text(
                     connectionHint,
@@ -82,29 +82,273 @@ fun KeyboardScreen(vm: MainViewModel) {
                 )
             }
 
-            // ─── 修饰键 ───
-            ModifierRow(vm = vm, keyRadius = KeyRadius, gap = Gap)
+            // Tab 切换
+            TabRow(selectedTabIndex = selectedTab) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = { Text(title) }
+                    )
+                }
+            }
 
-            // ─── 快捷键 ───
-            ShortcutRow(vm = vm, keyRadius = KeyRadius, gap = Gap)
+            // 内容区
+            when {
+                selectedTab == 0 -> {
+                    // 修饰键
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Gap)
+                    ) {
+                        listOf("ctrl" to "Ctrl", "alt" to "Alt", "shift" to "Shift", "win" to "Win").forEach { (key, label) ->
+                            val isActive = vm.isModifierActive(key)
+                            Button(
+                                onClick = { vm.toggleModifier(key) },
+                                modifier = Modifier.weight(1f).height(t.SmallKeyHeight.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isActive) t.AccentColor else t.KeyBg
+                                ),
+                                shape = RoundedCornerShape(t.KeyRadius.dp)
+                            ) {
+                                Text(
+                                    label,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isActive) Color.White else t.TextDark
+                                )
+                            }
+                        }
+                    }
 
-            // ─── 字母键盘 ───
-            LetterKeyboard(vm = vm, keyRadius = KeyRadius, gap = Gap)
+                    // 常用功能键
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Gap)
+                    ) {
+                        listOf("Esc" to "escape", "Tab" to "tab", "Bksp" to "backspace", "Del" to "delete").forEach { (label, key) ->
+                            Button(
+                                onClick = { vm.sendKey(key) },
+                                modifier = Modifier.weight(1f).height(t.SmallKeyHeight.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
+                                shape = RoundedCornerShape(t.KeyRadius.dp)
+                            ) {
+                                Text(label, fontSize = 12.sp, color = t.TextDark)
+                            }
+                        }
+                    }
 
-            // ─── 功能键 ───
-            FunctionRow(vm = vm, keyRadius = KeyRadius, gap = Gap)
+                    // 方向键
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(Gap)) {
+                            Button(
+                                onClick = { vm.sendKey("up") },
+                                modifier = Modifier.size(t.ArrowKeySize.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
+                                shape = RoundedCornerShape(t.KeyRadius.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) { Text("↑", fontSize = 16.sp, color = t.TextDark) }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(Gap)) {
+                            listOf("←" to "left", "↓" to "down", "→" to "right").forEach { (label, key) ->
+                                Button(
+                                    onClick = { vm.sendKey(key) },
+                                    modifier = Modifier.size(t.ArrowKeySize.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
+                                    shape = RoundedCornerShape(t.KeyRadius.dp),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) { Text(label, fontSize = 14.sp, color = t.TextDark) }
+                            }
+                        }
+                    }
 
-            // ─── 方向键 + Enter ───
-            ArrowAndEnter(vm = vm, keyRadius = KeyRadius)
+                    // Enter
+                    Button(
+                        onClick = { vm.sendKey("enter") },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = t.AccentColor),
+                        shape = RoundedCornerShape(t.KeyRadius.dp)
+                    ) {
+                        Text("Enter", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
 
-            Spacer(modifier = Modifier.weight(1f))
+                    // 鼠标按键
+                    if (mouseSettings.enabled) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(Gap)
+                        ) {
+                            Button(
+                                onClick = { vm.sendMouseClick("left") },
+                                modifier = Modifier.weight(1f).height(t.SmallKeyHeight.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
+                                shape = RoundedCornerShape(t.KeyRadius.dp)
+                            ) {
+                                Text("左键", fontSize = 12.sp, color = t.TextDark)
+                            }
+                            Button(
+                                onClick = { vm.sendMouseClick("right") },
+                                modifier = Modifier.weight(1f).height(t.SmallKeyHeight.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
+                                shape = RoundedCornerShape(t.KeyRadius.dp)
+                            ) {
+                                Text("右键", fontSize = 12.sp, color = t.TextDark)
+                            }
+                        }
+                    }
 
-            // ─── 语音输入按钮 ───
-            MicButton(
-                isRecording = isRecording,
-                onPress = { vm.startRecording() },
-                onRelease = { vm.stopRecording() },
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // 语音按钮
+                    MicButton(
+                        isRecording = isRecording,
+                        onPress = { vm.startRecording() },
+                        onRelease = { vm.stopRecording() },
+                    )
+                }
+                selectedTab == 1 && mouseSettings.enabled -> {
+                    when (mouseSettings.mode) {
+                        "air_mouse" -> AirMouseMode(
+                            enabled = vm.airMouseEnabled.value,
+                            onStart = { vm.startAirMouse() },
+                            onStop = { vm.stopAirMouse() },
+                            onPause = { vm.toggleAirMousePause() },
+                            paused = vm.airMousePaused.value,
+                            onLeftClick = { vm.sendMouseClick("left") },
+                            onRightClick = { vm.sendMouseClick("right") }
+                        )
+                        "touchpad" -> TouchPadMode(
+                            onMove = { dx, dy -> vm.sendMouseMove(dx, dy) },
+                            onClick = { vm.sendMouseClick("left") },
+                            onRightClick = { vm.sendMouseClick("right") },
+                            onScroll = { dy -> vm.sendMouseScroll(dy) },
+                            enabled = true
+                        )
+                    }
+                }
+                (selectedTab == 2) || (selectedTab == 1 && !mouseSettings.enabled) -> {
+                    SettingsScreen(
+                        settings = mouseSettings,
+                        onSettingsChange = { vm.updateMouseSettings(it) }
+                    )
+                }
+            }
+
+            error?.let { err ->
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(err, color = t.ErrorColor, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { vm.clearError() }) {
+                            Text("关闭")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AirMouseMode(
+    enabled: Boolean,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onPause: () -> Unit,
+    paused: Boolean,
+    onLeftClick: () -> Unit = {},
+    onRightClick: () -> Unit = {}
+) {
+    val t = KeyboardTokens
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        if (!enabled) {
+            Text("空中鼠标", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = t.TextDark)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("倾斜手机移动光标，触摸屏幕点击", color = t.TextDim)
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = onStart,
+                colors = ButtonDefaults.buttonColors(containerColor = t.AccentColor),
+                shape = RoundedCornerShape(t.KeyRadius.dp)
+            ) {
+                Text("启动", color = Color.White)
+            }
+        } else {
+            Text(
+                text = if (paused) "已暂停" else "移动中",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (paused) Color(0xFFF59E0B) else Color(0xFF22C55E)
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("倾斜手机控制光标", color = t.TextDim)
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = onPause,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (paused) Color(0xFF22C55E) else Color(0xFFF59E0B)
+                )
+            ) {
+                Text(
+                    text = if (paused) "继续" else "暂停",
+                    fontSize = 20.sp,
+                    color = Color.White
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = onStop,
+                shape = RoundedCornerShape(t.KeyRadius.dp)
+            ) {
+                Text("停止")
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 鼠标按键
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+Button(
+                    onClick = { onLeftClick() },
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
+                    shape = RoundedCornerShape(t.KeyRadius.dp)
+                ) {
+                    Text("左键", fontSize = 14.sp, color = t.TextDark)
+                }
+                Button(
+                    onClick = { onRightClick() },
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = t.KeyBg),
+                    shape = RoundedCornerShape(t.KeyRadius.dp)
+                ) {
+                    Text("右键", fontSize = 14.sp, color = t.TextDark)
+                }
+            }
         }
     }
 }
@@ -141,187 +385,19 @@ private fun ConnectionBar(
         )
         Button(
             onClick = onToggle,
+            modifier = Modifier.height(48.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (isConnected) t.ErrorColor else t.AccentColor
             ),
-            modifier = Modifier.height(48.dp).defaultMinSize(minWidth = 72.dp),
             shape = RoundedCornerShape(keyRadius)
         ) {
             Text(
                 if (isConnected) "断开" else "连接",
-                fontSize = 13.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color.White
+                color = Color.White,
+                maxLines = 1
             )
-        }
-    }
-}
-
-@Composable
-private fun ModifierRow(vm: MainViewModel, keyRadius: androidx.compose.ui.unit.Dp, gap: androidx.compose.ui.unit.Dp) {
-    val t = KeyboardTokens
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(gap)
-    ) {
-        listOf("ctrl", "alt", "shift", "win").forEach { mod ->
-            val isActive = vm.isModifierActive(mod)
-            val isShort = mod == "shift" || mod == "win"
-            Button(
-                onClick = { vm.toggleModifier(mod) },
-                modifier = Modifier.weight(1f).height(t.SmallKeyHeight.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isActive) t.AccentColor else t.KeyBg
-                ),
-                shape = RoundedCornerShape(keyRadius)
-            ) {
-                Text(
-                    mod.replaceFirstChar { it.uppercase() },
-                    fontSize = if (isShort) 11.sp else 14.sp,
-                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isActive) Color.White else t.TextDark
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ShortcutRow(vm: MainViewModel, keyRadius: androidx.compose.ui.unit.Dp, gap: androidx.compose.ui.unit.Dp) {
-    val t = KeyboardTokens
-    val shortcuts = listOf(
-        Triple("A", "a", "全选"),
-        Triple("C", "c", "复制"),
-        Triple("V", "v", "粘贴"),
-    )
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(gap)
-    ) {
-        shortcuts.forEach { (label, key, _) ->
-            Button(
-                onClick = { vm.sendKey(key, listOf("ctrl")) },
-                modifier = Modifier.weight(1f).height(t.KeyHeight.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = t.AccentColor),
-                shape = RoundedCornerShape(keyRadius),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
-            ) {
-                Text(
-                    "Ctrl+",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun LetterKeyboard(vm: MainViewModel, keyRadius: androidx.compose.ui.unit.Dp, gap: androidx.compose.ui.unit.Dp) {
-    val t = KeyboardTokens
-    val rows = listOf(
-        listOf("q","w","e","r","t","y","u","i","o","p"),
-        listOf("a","s","d","f","g","h","j","k","l"),
-        listOf("z","x","c","v","b","n","m"),
-    )
-    rows.forEach { row ->
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(gap)
-        ) {
-            row.forEach { letter ->
-                Button(
-                    onClick = { vm.sendKey(letter) },
-                    modifier = Modifier.weight(1f).height(t.KeyHeight.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = t.KeyLetterBg),
-                    shape = RoundedCornerShape(keyRadius),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp)
-                ) {
-                    Text(
-                        letter.uppercase(),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = t.TextDark
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FunctionRow(vm: MainViewModel, keyRadius: androidx.compose.ui.unit.Dp, gap: androidx.compose.ui.unit.Dp) {
-    val t = KeyboardTokens
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(gap)
-    ) {
-        listOf(
-            Triple("Tab", "tab", 1f),
-            Triple("Esc", "escape", 1f),
-            Triple("Bksp", "backspace", 1f)
-        ).forEach { (label, key, weight) ->
-            Button(
-                onClick = { vm.sendKey(key) },
-                modifier = Modifier.weight(weight).height(t.SmallKeyHeight.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = t.KeyFnBg),
-                shape = RoundedCornerShape(keyRadius)
-            ) {
-                Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = t.TextDark)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ArrowAndEnter(vm: MainViewModel, keyRadius: androidx.compose.ui.unit.Dp) {
-    val t = KeyboardTokens
-    val arrowSize = t.ArrowKeySize.dp
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = { vm.sendKey("up") },
-                modifier = Modifier.size(arrowSize),
-                colors = ButtonDefaults.buttonColors(containerColor = t.KeyArrowBg),
-                shape = RoundedCornerShape(keyRadius),
-                contentPadding = PaddingValues(0.dp)
-            ) { Text("↑", fontSize = 18.sp, color = t.TextDark) }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = { vm.sendKey("left") },
-                modifier = Modifier.size(arrowSize),
-                colors = ButtonDefaults.buttonColors(containerColor = t.KeyArrowBg),
-                shape = RoundedCornerShape(keyRadius),
-                contentPadding = PaddingValues(0.dp)
-            ) { Text("←", fontSize = 14.sp, color = t.TextDark) }
-            Button(
-                onClick = { vm.sendKey("down") },
-                modifier = Modifier.size(arrowSize),
-                colors = ButtonDefaults.buttonColors(containerColor = t.KeyArrowBg),
-                shape = RoundedCornerShape(keyRadius),
-                contentPadding = PaddingValues(0.dp)
-            ) { Text("↓", fontSize = 18.sp, color = t.TextDark) }
-            Button(
-                onClick = { vm.sendKey("right") },
-                modifier = Modifier.size(arrowSize),
-                colors = ButtonDefaults.buttonColors(containerColor = t.KeyArrowBg),
-                shape = RoundedCornerShape(keyRadius),
-                contentPadding = PaddingValues(0.dp)
-            ) { Text("→", fontSize = 14.sp, color = t.TextDark) }
-        }
-        Button(
-            onClick = { vm.sendKey("enter") },
-            modifier = Modifier.fillMaxWidth().height(48.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = t.AccentColor),
-            shape = RoundedCornerShape(keyRadius)
-        ) {
-            Text("Enter", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
         }
     }
 }
@@ -335,12 +411,12 @@ private fun MicButton(
     val t = KeyboardTokens
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(bottom = 16.dp)
+        modifier = Modifier.padding(bottom = 8.dp)
     ) {
         val micColor = if (isRecording) t.ErrorColor else t.AccentColor
         Box(
             modifier = Modifier
-                .size(80.dp)
+                .size(72.dp)
                 .clip(CircleShape)
                 .background(micColor)
                 .pointerInput(Unit) {
@@ -354,13 +430,13 @@ private fun MicButton(
                 },
             contentAlignment = Alignment.Center
         ) {
-            Text("🎤", fontSize = 26.sp)
+            Text("🎤", fontSize = 24.sp)
         }
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             if (isRecording) "正在录音..." else "按住语音输入",
             color = if (isRecording) t.ErrorColor else t.TextDim,
-            fontSize = 12.sp
+            fontSize = 11.sp
         )
     }
 }

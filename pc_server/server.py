@@ -3,6 +3,7 @@ import logging
 import asyncio
 import websockets
 from keyboard import press_key, release_key, get_key, keyboard
+from mouse import handle_air_mouse, handle_mouse_move, handle_mouse_click, handle_mouse_scroll
 import sounddevice as sd
 import numpy as np
 
@@ -124,6 +125,18 @@ class WebSocketServer:
 
                     elif msg_type == "key_up":
                         release_key(data.get("key", ""))
+
+                    elif msg_type == "air_mouse":
+                        handle_air_mouse(data.get("dx", 0.0), data.get("dy", 0.0))
+
+                    elif msg_type == "mouse_move":
+                        handle_mouse_move(data.get("dx", 0), data.get("dy", 0))
+
+                    elif msg_type == "mouse_click":
+                        handle_mouse_click(data.get("button", "left"))
+
+                    elif msg_type == "mouse_scroll":
+                        handle_mouse_scroll(data.get("dy", 0))
 
                     elif msg_type in ("button_down", "button_up"):
                         log.info("Button %s (audio mode)", msg_type.split("_")[1])

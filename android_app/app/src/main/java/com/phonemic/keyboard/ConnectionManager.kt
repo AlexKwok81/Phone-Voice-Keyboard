@@ -43,7 +43,7 @@ class ConnectionManager(
         if (url.isEmpty()) return
         onHint("正在连接...")
         Log.d("PhoneMic", "Auto-connecting to: ")
-        val wsUrl = if (url.startsWith("ws://") || url.startsWith("wss://")) url else "ws://"
+        val wsUrl = if (url.startsWith("ws://") || url.startsWith("wss://")) url else "ws://$url"
         client.connect(wsUrl)
         startAutoReconnect(onHint)
     }
@@ -53,7 +53,7 @@ class ConnectionManager(
         userDisconnected = false
         prefs.edit().putString("server_url", url).apply()
         onHint("正在连接...")
-        val wsUrl = if (url.startsWith("ws://") || url.startsWith("wss://")) url else "ws://"
+        val wsUrl = if (url.startsWith("ws://") || url.startsWith("wss://")) url else "ws://$url"
         client.connect(wsUrl)
         startAutoReconnect(onHint)
     }
@@ -89,4 +89,8 @@ class ConnectionManager(
     fun sendButtonDown() = client.sendButtonDown()
     fun sendButtonUp() = client.sendButtonUp()
     fun sendAudioData(data: ByteArray) = client.sendAudioData(data)
+    fun sendAirMouse(dx: Float, dy: Float) = client.sendAirMouse(dx, dy)
+    fun sendMouseMove(dx: Int, dy: Int) = client.sendMouseMove(dx, dy)
+    fun sendMouseClick(button: String) = client.sendMouseClick(button)
+    fun sendMouseScroll(dy: Int) = client.sendMouseScroll(dy)
 }
