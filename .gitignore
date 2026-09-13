@@ -52,3 +52,8 @@ archive/
 
 # Backup files
 *.bak
+
+# PyInstaller build artifacts
+pc_server/build/
+pc_server/*.spec
+

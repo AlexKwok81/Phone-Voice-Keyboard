@@ -58,6 +58,12 @@
 
 ### 1. 启动 PC 服务
 
+**方式一：直接运行 exe（推荐，无需安装 Python）**
+
+从 [Releases](../../releases) 页面下载最新版 `PhoneMicServer.exe`，双击运行即可。
+
+**方式二：从源码运行**
+
 ```bash
 cd pc_server
 pip install -r requirements.txt
@@ -172,6 +178,15 @@ phone_keybord/
 - Material Design 3
 - OkHttp WebSocket
 
+### 构建 exe
+
+```bash
+cd pc_server
+pip install pyinstaller
+pyinstaller --onefile --name "PhoneMicServer" --console main.py
+# 生成的 exe 位于 dist/PhoneMicServer.exe
+```
+
 ## 📄 License
 
 MIT License - 详见 [LICENSE](LICENSE) 文件
@@ -181,3 +196,6 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 - [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) - 虚拟音频设备
 - [pynput](https://pypi.org/project/pynput/) - 键盘鼠标控制
 - [Jetpack Compose](https://developer.android.com/jetpack/compose) - Android UI 框架
+
+
+
