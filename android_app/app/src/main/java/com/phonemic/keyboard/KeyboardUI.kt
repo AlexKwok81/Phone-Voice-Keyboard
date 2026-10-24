@@ -1,4 +1,4 @@
-package com.phonemic.keyboard
+﻿package com.phonemic.keyboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -374,6 +374,28 @@ private fun SettingsContent(
 
         Divider()
 
+        // 松开语音按钮自动发送 Enter
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("松开自动回车")
+                Text(
+                    "语音输入结束后自动发送 Enter 键",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = settings.autoEnterOnRelease,
+                onCheckedChange = { onSettingsChange(settings.copy(autoEnterOnRelease = it)) }
+            )
+        }
+
+        Divider()
+
         // 鼠标功能设置
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -565,5 +587,4 @@ private fun MicButton(
         )
     }
 }
-
 

@@ -17,7 +17,8 @@ data class AppSettings(
     val sensitivity: Float = 50f,
     val twoFingerScroll: Boolean = true,
     val deadZone: Float = 0.03f,
-    val voiceTriggerKeys: List<String> = listOf("ctrl", "win")
+    val voiceTriggerKeys: List<String> = listOf("ctrl", "win"),
+    val autoEnterOnRelease: Boolean = false
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,6 +62,28 @@ fun SettingsScreen(
                     label = { Text(key.uppercase()) }
                 )
             }
+        }
+
+        Divider()
+
+        // 松开语音按钮自动发送 Enter
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("松开自动回车")
+                Text(
+                    "语音输入结束后自动发送 Enter 键",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = settings.autoEnterOnRelease,
+                onCheckedChange = { onSettingsChange(settings.copy(autoEnterOnRelease = it)) }
+            )
         }
 
         Divider()
@@ -132,6 +155,7 @@ fun saveAppSettings(context: Context, settings: AppSettings) {
         .putBoolean("mouse_two_finger_scroll", settings.twoFingerScroll)
         .putFloat("mouse_dead_zone", settings.deadZone)
         .putStringSet("voice_trigger_keys", settings.voiceTriggerKeys.toSet())
+        .putBoolean("auto_enter_on_release", settings.autoEnterOnRelease)
         .apply()
 }
 
@@ -143,7 +167,8 @@ fun loadAppSettings(context: Context): AppSettings {
         sensitivity = prefs.getFloat("mouse_sensitivity", 50f),
         twoFingerScroll = prefs.getBoolean("mouse_two_finger_scroll", true),
         deadZone = prefs.getFloat("mouse_dead_zone", 0.03f),
-        voiceTriggerKeys = prefs.getStringSet("voice_trigger_keys", setOf("ctrl", "win"))?.toList() ?: listOf("ctrl", "win")
+        voiceTriggerKeys = prefs.getStringSet("voice_trigger_keys", setOf("ctrl", "win"))?.toList() ?: listOf("ctrl", "win"),
+        autoEnterOnRelease = prefs.getBoolean("auto_enter_on_release", false)
     )
 }
 

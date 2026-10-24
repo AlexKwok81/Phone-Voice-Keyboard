@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Application
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.PowerManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,11 +20,19 @@ import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val wakeLock = (application.getSystemService(PowerManager::class.java))
+        .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "PhoneMicKeyboard::Connection")
+
     private val conn = ConnectionManager(
         application = application,
         scope = viewModelScope,
         onStatusChange = { s ->
             status.value = s
+            if (s == ConnectionStatus.CONNECTED) {
+                if (!wakeLock.isHeld) wakeLock.acquire()
+            } else if (wakeLock.isHeld) {
+                wakeLock.release()
+            }
             if (s == ConnectionStatus.CONNECTED) connectionHint.value = ""
         },
         onError = { error.value = it },
@@ -71,6 +80,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         connectionHint.value = ""
     }
 
+    override fun onCleared() {
+        if (wakeLock.isHeld) wakeLock.release()
+        super.onCleared()
+    }
+
     fun toggleModifier(mod: String) {
         if (_activeModifiers.contains(mod)) _activeModifiers.remove(mod) else _activeModifiers.add(mod)
     }
@@ -100,6 +114,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // 释放配置的按键（反序释放）
         val triggerKeys = appSettings.value.voiceTriggerKeys
         triggerKeys.reversed().forEach { key -> conn.sendKeyUp(key) }
+        // 松开时自动发送 Enter（延迟等待语音识别完成）
+        if (appSettings.value.autoEnterOnRelease) {
+            viewModelScope.launch(Dispatchers.IO) {
+                delay(800)
+                sendKey("enter")
+            }
+        }
     }
 
     fun startAirMouse() {
